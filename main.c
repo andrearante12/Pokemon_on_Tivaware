@@ -25,7 +25,7 @@
 
 #define E_SPRITE_ROWS  69
 #define P_SPRITE_ROWS  74
-#define SPRITE_CLEAR_W 140   /* spaces per row */
+#define SPRITE_CLEAR_W 140   // spaces per row 
 
 #define F_CPU 40000000UL
 
@@ -36,18 +36,23 @@
 // UART init
 void UART_initialize(void)
 {
-    SysCtlClockSet(SYSCTL_SYSDIV_5 | SYSCTL_USE_PLL |
-                   SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN);
+    // Clock Programming
+    SysCtlClockSet(SYSCTL_SYSDIV_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN);
+
+    // Enable UART and GPIOA
     SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+
+    // Configure UART Pins
     GPIOPinConfigure(GPIO_PA0_U0RX);
     GPIOPinConfigure(GPIO_PA1_U0TX);
     GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
-    UARTConfigSetExpClk(UART0_BASE, SysCtlClockGet(), 115200,
-        (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
+
+    // Set Baudrate = 115200, 8-N-1
+    UARTConfigSetExpClk(UART0_BASE, SysCtlClockGet(), 115200, (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
 }
 
-// UART helpers
+// UART helper functions
 static void uart_putc(char c)
 {
     UARTCharPut(UART0_BASE, c);
@@ -67,6 +72,7 @@ static void uart_putint(int n)
     while (i-- > 0) uart_putc(buf[i]);
 }
 
+// Move cursor to row/col
 static void ansi_goto(int row, int col)
 {
     uart_puts("\033[");
@@ -76,7 +82,7 @@ static void ansi_goto(int row, int col)
     uart_putc('H');
 }
 
-// ADC + Joystick init
+// ADC + Joystick initialize
 void ADC_initialize(void)
 {
     SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
@@ -94,7 +100,8 @@ void ADC_initialize(void)
 
     // SW1 = PF4, SW2 = PF0 (active low)
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-    // PF0 is NMI-locked — must unlock before configuring
+    
+    // PF0 is NMI-locked, must unlock before configuring
     HWREG(GPIO_PORTF_BASE + GPIO_O_LOCK) = GPIO_LOCK_KEY;
     HWREG(GPIO_PORTF_BASE + GPIO_O_CR)  |= GPIO_PIN_0;
     HWREG(GPIO_PORTF_BASE + GPIO_O_LOCK) = 0;
@@ -103,25 +110,35 @@ void ADC_initialize(void)
                      GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
 }
 
+// Sample one ADC channel and return the 12-bit result (0..4095).
 static uint32_t read_adc_ch(uint32_t ch)
 {
     uint32_t val;
     ADCSequenceStepConfigure(ADC0_BASE, 3, 0, ch | ADC_CTL_IE | ADC_CTL_END);
+
+    // Clear any old flags
     ADCIntClear(ADC0_BASE, 3);
+
+    // Start analog to digital conversion
     ADCProcessorTrigger(ADC0_BASE, 3);
+
+    // Wait until the conversion finishes
     while (!ADCIntStatus(ADC0_BASE, 3, false)) {}
     ADCIntClear(ADC0_BASE, 3);
+
+    // Read result 
     ADCSequenceDataGet(ADC0_BASE, 3, &val);
     return val;
 }
 
 // Game helpers
-typedef enum { STATE_MENU, STATE_MOVE_SELECT, STATE_PLAYER_ATK,
-               STATE_ENEMY_ATK, STATE_WIN, STATE_LOSE } game_state_t;
+typedef enum { STATE_MENU, STATE_MOVE_SELECT, STATE_PLAYER_ATK, STATE_ENEMY_ATK, STATE_WIN, STATE_LOSE } game_state_t;
 
 static int sw2_pressed(void)
 {
     if (GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_0) == 0) {
+
+        // 20 ms debounce
         SysCtlDelay(SysCtlClockGet() / 150);
         return (GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_0) == 0);
     }
@@ -131,7 +148,9 @@ static int sw2_pressed(void)
 static int sw1_pressed(void)
 {
     if (GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_4) == 0) {
-        SysCtlDelay(SysCtlClockGet() / 150);   /* ~20 ms debounce */
+
+        // 20 ms debounce
+        SysCtlDelay(SysCtlClockGet() / 150);
         return (GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_4) == 0);
     }
     return 0;
@@ -146,9 +165,8 @@ static void delay_sec(int n)
 static const int MOVE_ROW[4] = { MOVE0_ROW, MOVE1_ROW, MOVE2_ROW, MOVE3_ROW };
 static const int MOVE_COL[4] = { MOVE0_COL, MOVE1_COL, MOVE2_COL, MOVE3_COL };
 
-// Partial update functions
 
-// Redraws the 3-row HP bar fill for enemy (is_player=0) or player (is_player=1).
+// Redraws the 3-row HP bar fill  enemy (is_player=0) or player (is_player=1)
 void update_hp_bar(int is_player, int hp, int max_hp)
 {
     int row    = is_player ? P_HP_BAR_ROW : E_HP_BAR_ROW;
@@ -163,7 +181,7 @@ void update_hp_bar(int is_player, int hp, int max_hp)
     }
 }
 
-// Paints pre-rendered pixel-font "hp/max_hp" at the HP-number slot.
+// Update hp percentage
 void update_hp_num(int is_player, int hp, int max_hp)
 {
     int row = is_player ? P_HP_NUM_ROW  : E_HP_NUM_ROW;
@@ -175,10 +193,10 @@ void update_hp_num(int is_player, int hp, int max_hp)
         ansi_goto(row + r, col);
         uart_puts(rows[r]);
     }
-    (void)max_hp;   /* baked into the pre-rendered table */
+    (void)max_hp;  
 }
 
-// Moves the '>' cursor from old_sel to new_sel (0-3).
+// Moves the cursor from old_sel to new_sel 
 void update_move_cursor(int old_sel, int new_sel)
 {
     int r;
@@ -192,7 +210,7 @@ void update_move_cursor(int old_sel, int new_sel)
     }
 }
 
-// Writes a move-slot label (BLOCK_ROWS rows, padded to MOVE_LABEL_W) at slot.
+// Writes a move-slot label 
 static void update_move_label(int slot, const char * const *rows)
 {
     int r;
@@ -222,13 +240,13 @@ static void show_menu(const char * const * const labels[4], int sel)
     }
 }
 
-// Replaces the dialog area with a pre-rendered message (null-terminated array of 11 strings).
+// Replaces the dialog area with a message
 void update_dialog(const char * const *rows)
 {
     int r, i;
     for (r = 0; r < DIALOG_ROWS; r++) {
         ansi_goto(DIALOG_ROW + r, DIALOG_COL);
-        for (i = 0; i < DIALOG_W; i++) uart_putc(' ');   // blank row
+        for (i = 0; i < DIALOG_W; i++) uart_putc(' ');  
         if (rows[r] && rows[r][0]) {
             ansi_goto(DIALOG_ROW + r, DIALOG_COL);
             uart_puts(rows[r]);
@@ -236,7 +254,7 @@ void update_dialog(const char * const *rows)
     }
 }
 
-// Replaces a sprite with a new frame; sprite is a null-terminated array of strings.
+// Regenerate sprinte for animation
 void update_sprite(int is_player, const char * const *sprite)
 {
     int row = is_player ? P_SPRITE_ROW : E_SPRITE_ROW;
@@ -248,7 +266,7 @@ void update_sprite(int is_player, const char * const *sprite)
     }
 }
 
-// Faint animation
+// Faint 
 static void clear_sprite_region(int is_player, int nrows)
 {
     int row = is_player ? P_SPRITE_ROW : E_SPRITE_ROW;
@@ -260,54 +278,58 @@ static void clear_sprite_region(int is_player, int nrows)
     }
 }
 
+// animation --> regenerates sprite 3 times then erases it
 static void faint_animate(int is_player, const char * const *sprite, int nrows)
 {
     int flash;
     for (flash = 0; flash < 3; flash++) {
         clear_sprite_region(is_player, nrows);
-        SysCtlDelay(SysCtlClockGet() / 60);   // ~17 ms hidden
+        SysCtlDelay(SysCtlClockGet() / 60);   // ~17 ms 
         update_sprite(is_player, sprite);
-        SysCtlDelay(SysCtlClockGet() / 60);   // ~17 ms visible
+        SysCtlDelay(SysCtlClockGet() / 60);   // ~17 ms 
     }
-    clear_sprite_region(is_player, nrows);    // final disappear
+    clear_sprite_region(is_player, nrows);   
 }
 
-// Music playback via Timer0A ISR
-volatile uint32_t g_ticks_left;
-volatile uint32_t g_note_idx;
-volatile uint32_t g_music_state = 0;  // 0-(PLAYLIST_LEN-1) = track index
-volatile int      g_muted = 0;
+// Music playback
+volatile uint32_t ui32Period;                  // current half-period in cycles
+volatile uint8_t  beat;                        // current note index (S = 0 = silence)
+volatile uint32_t seq;                         // index of current pair
+volatile uint32_t LEN;                         // current track's pair count
+volatile uint32_t TEMPO;                       // current track's ms-per-len
+volatile uint32_t ticks_left;                  // ISR firings remaining for this beat
+volatile const uint8_t *track_seq;             // pointer to current track's bytes
+
+volatile uint32_t       g_music_state = 0;     // playlist index
+volatile int            g_muted       = 0;     // mute toggle
+
+static uint32_t compute_ticks(uint8_t len)
+{
+    uint32_t hz = F_CPU / ui32Period;          // current ISR rate
+    uint32_t t  = (len * TEMPO * hz) / 1000;
+    return (t == 0) ? 1 : t;
+}
 
 void Timer0IntHandler(void)
 {
     TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
 
-    const note_t *track = PLAYLIST[g_music_state];
-    uint32_t f = track[g_note_idx].freq_hz;
-    if (f == 0 || g_muted) {
+    // Pin toggle
+    if (GPIOPinRead(GPIO_PORTB_BASE, GPIO_PIN_5) || (beat == S) || g_muted) {
         GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_5, 0);
     } else {
-        uint8_t cur = GPIOPinRead(GPIO_PORTB_BASE, GPIO_PIN_5);
-        GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_5, cur ? 0 : GPIO_PIN_5);
+        GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_5, 0x20);
     }
 
-    if (g_ticks_left > 0) g_ticks_left--;
-    if (g_ticks_left == 0) {
-        g_note_idx++;
-        if (track[g_note_idx].freq_hz == 0 && track[g_note_idx].dur_ms == 0)
-            g_note_idx = 0;  // loop current track
-        f = track[g_note_idx].freq_hz;
-        uint32_t d = track[g_note_idx].dur_ms;
-        uint32_t period;
-        if (f > 0) {
-            period       = F_CPU / (2 * f);
-            g_ticks_left = d * f * 2 / 1000;
-        } else {
-            period       = F_CPU / 1000;
-            g_ticks_left = d;
-        }
-        if (g_ticks_left == 0) g_ticks_left = 1;
-        TimerLoadSet(TIMER0_BASE, TIMER_A, period - 1);
+    // Sequencer
+    if (--ticks_left == 0) {
+        seq++;
+        if (seq >= LEN) seq = 0;                                // loop track
+        beat = track_seq[seq * 2];
+        uint8_t len = track_seq[seq * 2 + 1];
+        ui32Period = (beat == S) ? (F_CPU / 1000) / 2 : notes[beat - 1];
+        ticks_left = compute_ticks(len);
+        TimerLoadSet(TIMER0_BASE, TIMER_A, ui32Period - 1);
     }
 }
 
@@ -317,23 +339,20 @@ static void Music_initialize(void)
     GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_5);
     GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_5, 0);
 
-    g_note_idx = 0;
-    uint32_t f = PLAYLIST[0][0].freq_hz;
-    uint32_t d = PLAYLIST[0][0].dur_ms;
-    uint32_t period;
-    if (f > 0) {
-        period       = F_CPU / (2 * f);
-        g_ticks_left = d * f * 2 / 1000;
-    } else {
-        period       = F_CPU / 1000;
-        g_ticks_left = d;
-    }
-    if (g_ticks_left == 0) g_ticks_left = 1;
-
     SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
     TimerConfigure(TIMER0_BASE, TIMER_CFG_PERIODIC);
-    TimerLoadSet(TIMER0_BASE, TIMER_A, period - 1);
     TimerEnable(TIMER0_BASE, TIMER_A);
+
+    // Load first
+    track_seq = PLAYLIST[g_music_state].seq;
+    LEN = PLAYLIST[g_music_state].len;
+    TEMPO = PLAYLIST[g_music_state].tempo;
+    seq = 0;
+    beat = track_seq[0];
+    ui32Period = (beat == S) ? (F_CPU / 1000) / 2 : notes[beat - 1];
+    ticks_left = compute_ticks(track_seq[1]);
+
+    TimerLoadSet(TIMER0_BASE, TIMER_A, ui32Period - 1);
     IntEnable(INT_TIMER0A);
     TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
     IntMasterEnable();
@@ -343,15 +362,15 @@ static void Music_initialize(void)
 int main(void)
 {
     int i;
-    int sel            = 0;
-    int joy_moved      = 0;
-    int sel_move       = 0;
-    int joy_moved_sub  = 0;
-    int move_choice    = 0;
-    int enemy_hp       = 20;
-    int player_hp      = 20;
-    int defense_drops  = 0;   // Tail Whip stacks
-    int attack_drops   = 0;   // Growl stacks
+    int sel = 0; // main menu cursor position
+    int joy_moved = 0; // 1 if joystick on main menu has moved
+    int sel_move = 0; // attack menu cursor position
+    int joy_moved_sub = 0; // 1 if joystick on attack menu has moved
+    int move_choice = 0;
+    int enemy_hp = 20;
+    int player_hp = 20;
+    int defense_drops = 0;   // Tail Whip stacks
+    int attack_drops = 0;   // Growl stacks
     game_state_t state  = STATE_MENU;
     uint32_t x, y;
 
@@ -383,9 +402,9 @@ int main(void)
                 int new_row = row;
                 int new_col = col;
 
-                if      (y < JOY_LO) new_row = 0;
+                if (y < JOY_LO) new_row = 0;
                 else if (y > JOY_HI) new_row = 1;
-                if      (x < JOY_LO) new_col = 0;
+                if (x < JOY_LO) new_col = 0;
                 else if (x > JOY_HI) new_col = 1;
 
                 {
@@ -402,7 +421,7 @@ int main(void)
             }
 
             if (sw1_pressed()) {
-                if (sel == 0) {   // FIGHT → open move sub-menu
+                if (sel == 0) {   // FIGHT, open move sub-menu
                     sel_move      = 0;
                     joy_moved_sub = 0;
                     show_menu(MOVE_LABELS, sel_move);
@@ -415,8 +434,11 @@ int main(void)
 
             if (sw2_pressed()) {
                 g_music_state = (g_music_state + 1) % PLAYLIST_LEN;
-                g_note_idx   = 0;
-                g_ticks_left = 1;
+                track_seq = PLAYLIST[g_music_state].seq;
+                LEN = PLAYLIST[g_music_state].len;
+                TEMPO = PLAYLIST[g_music_state].tempo;
+                seq = 0;
+                ticks_left = 1;            // force ISR to advance into the new track
                 while (GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_0) == 0) {}
             }
 
@@ -442,9 +464,9 @@ int main(void)
                 int new_row = row;
                 int new_col = col;
 
-                if      (y < JOY_LO) new_row = 0;
+                if (y < JOY_LO) new_row = 0;
                 else if (y > JOY_HI) new_row = 1;
-                if      (x < JOY_LO) new_col = 0;
+                if (x < JOY_LO) new_col = 0;
                 else if (x > JOY_HI) new_col = 1;
 
                 {

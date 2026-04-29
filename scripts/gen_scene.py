@@ -1,16 +1,3 @@
-#!/usr/bin/env python3
-"""
-gen_scene.py — generates scene_data.h and scene_pos.h from the project's
-battle scene definition.
-
-Self-contained: includes asset loading, font rendering, layout composition,
-and codegen. The only external dependency is font_small_block.py, which
-must live alongside this script.
-
-Run from anywhere:
-    python3 final_project/scripts/gen_scene.py
-"""
-
 import sys
 import os
 
@@ -23,15 +10,11 @@ from font_small_block import render as _render_block, ROWS as BLOCK_ROWS, COLS a
 ASSETS_DIR = os.path.join(PROJECT_DIR, 'assets')
 
 
-# ── Asset loader (was assets.py) ────────────────────────────────────────────
-
 def asset_lines(name):
     """Return the contents of assets/<name>.txt as a list of lines."""
     with open(os.path.join(ASSETS_DIR, f"{name}.txt"), encoding='utf-8') as f:
         return f.read().splitlines()
 
-
-# ── Battle parameters ───────────────────────────────────────────────────────
 
 PLAYER_NAME  = "squirtle"
 ENEMY_NAME   = "bulbasaur"
