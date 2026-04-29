@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""
+convert_sprites.py — reads ../assets/*.txt, outputs C string array literals.
+Run from anywhere; assets are resolved relative to the project root.
+
+Usage:  python3 scripts/convert_sprites.py > sprites.h
+"""
+import os
+
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ASSETS_DIR  = os.path.join(PROJECT_DIR, 'assets')
+
+
+def _encode_line(line):
+    """Encode a Unicode string as the body of a C string literal (no outer
+    quotes). Emits raw UTF-8 — relies on the C compiler accepting multi-byte
+    characters in string literals (modern GCC/Clang/TI Clang all do)."""
+    return line.replace('\\', '\\\\').replace('"', '\\"')
+
+
+def convert(name):
+    path = os.path.join(ASSETS_DIR, f'{name}.txt')
+    with open(path, encoding='utf-8') as f:
+        lines = [l.rstrip('\n\r') for l in f.readlines()]
+
+    # strip leading/trailing blank lines
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+
+    # strip common left indent
+    indent = min(len(l) - len(l.lstrip()) for l in lines if l.strip())
+    lines = [l[indent:].rstrip() for l in lines]
+
+    print(f'static const char *{name}[] = {{')
+    for line in lines:
+        print(f'    "{_encode_line(line)}",')
+    print('    0')
+    print('};')
+    print()
+
+
+if __name__ == '__main__':
+    for f in sorted(os.listdir(ASSETS_DIR)):
+        if f.endswith('.txt'):
+            convert(f[:-4])

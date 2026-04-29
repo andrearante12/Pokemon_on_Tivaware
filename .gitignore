@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+
+# Editor / office lock files
+.~lock.*
+
+# Backup files
+*.bak
+
+# CCS build output (regeneratable)
+Debug/
+
+# Claude Code local files
+.claude/
+.claude.json
+.claude.json.backup
+CLAUDE.md

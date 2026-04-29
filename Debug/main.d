@@ -25,11 +25,12 @@ main.obj: /Applications/ti/TivaWare-2.2.0.295/driverlib/interrupt.h
 main.obj: ../scene_data.h
 main.obj: ../scene_pos.h
 main.obj: /Applications/ti/TivaWare-2.2.0.295/inc/hw_gpio.h
-main.obj: ../playlist.h
-main.obj: ../track1.h
-main.obj: ../track2.h
-main.obj: ../track3.h
-main.obj: ../track4.h
+main.obj: ../music/playlist.h
+main.obj: ../music/track1.h
+main.obj: ../music/track2.h
+main.obj: ../music/track3.h
+main.obj: ../music/track4.h
+main.obj: ../sprites.h
 
 ../main.c:
 
@@ -81,13 +82,15 @@ main.obj: ../track4.h
 
 /Applications/ti/TivaWare-2.2.0.295/inc/hw_gpio.h:
 
-../playlist.h:
+../music/playlist.h:
 
-../track1.h:
+../music/track1.h:
 
-../track2.h:
+../music/track2.h:
 
-../track3.h:
+../music/track3.h:
 
-../track4.h:
+../music/track4.h:
+
+../sprites.h:
 

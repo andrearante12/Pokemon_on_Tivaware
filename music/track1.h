@@ -6,7 +6,7 @@
 typedef struct { uint32_t freq_hz; uint32_t dur_ms; } note_t;
 #endif
 
-/* 548 entries from track1.mid */
+/* 548 entries from music/track1.mid */
 static const note_t SONG_track1[] = {
     {  294,   114},
     {    0,    20},
